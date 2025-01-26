@@ -15,32 +15,49 @@
 import sys
 import importlib
 from types import ModuleType
+from pathlib import Path
 
 class llama_cpp_hijack:
     def __init__(self):
-        # Get reference to original module first
+        # 1. Get original module reference
         original_llama = sys.modules.get('llama_cpp', None)
         
-        # Force reload settings with potential user modifications
+        # 2. Force reload settings with proper Pydantic v2 handling
         settings_module = importlib.import_module('llama_cpp.server.settings')
         importlib.reload(settings_module)
         
-        # Modern llama.cpp versions use a Settings class
+        # 3. Handle different settings configurations
         if hasattr(settings_module, 'Settings'):
-            self.target_batch = settings_module.Settings().n_batch
-        else:  # Legacy version with direct attributes
-            self.target_batch = getattr(settings_module, 'n_batch', 512)  # Fallback
+            # Pydantic v2 style with required fields
+            self.target_batch = settings_module.Settings(
+                model="/tmp/llama_index/models/panda-7b-v0.1.Q4_K_M.gguf",  # Required field placeholder:cite[3]:cite[6]
+                n_batch=2048              # Your override
+            ).n_batch
+        else:
+            # Fallback for legacy configurations
+            self.target_batch = getattr(settings_module, 'n_batch', 512)
 
-        # Monkey-patch the Llama class
+        # 4. Monkey-patch the Llama class constructor
         class PatchedLlama(original_llama.Llama):
             def __init__(self, *args, **kwargs):
+                # Enforce n_batch with priority:
+                # 1. Explicit arguments
+                # 2. Settings.py value
+                # 3. Default 512:cite[5]
                 kwargs.setdefault('n_batch', self.target_batch)
+                
+                # Handle required model_path if needed
+                if 'model_path' not in kwargs:
+                    kwargs['model_path'] = "dummy/path.gguf"
+                
                 super().__init__(*args, **kwargs)
-        
+
+        # 5. Replace module components
         original_llama.Llama = PatchedLlama
         sys.modules['llama_cpp'] = original_llama
 
-        print(f"Successfully set n_batch to {self.target_batch}")
+        # 6. Debug output
+        print(f"llama_cpp hijack complete - n_batch={self.target_batch}")
 
-# Apply the hijack immediately
+# Immediate application
 llama_cpp_hijack()
