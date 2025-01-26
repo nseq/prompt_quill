@@ -26,10 +26,6 @@ from ui_share import UiShare
 
 import gradio as gr
 
-from llm_fw.llama_cpp_hijack import llama_cpp_hijack
-
-hijack = llama_cpp_hijack()
-
 from ui import ui_actions, ui_staff
 from generators.aesthetic import score
 from style import style
