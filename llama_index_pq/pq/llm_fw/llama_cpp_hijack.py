@@ -15,12 +15,12 @@
 import sys
 
 try:
-    import llama_cpp_cuda_tensorcores
+    import llama_cpp
 except:
-    llama_cpp_cuda_tensorcores = None
+    llama_cpp = None
 
 
 
 class llama_cpp_hijack:
     def __init__(self):
-        sys.modules['llama_cpp'] = llama_cpp_cuda_tensorcores
+        sys.modules['llama_cpp'] = llama_cpp
