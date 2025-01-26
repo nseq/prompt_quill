@@ -13,37 +13,34 @@
 # permissions and limitations under the License.
 
 import sys
-import inspect
-from importlib import reload
-
-# Keep original reference before hijacking
-original_llama_cpp = sys.modules.get('llama_cpp', None)
+import importlib
+from types import ModuleType
 
 class llama_cpp_hijack:
     def __init__(self):
-        # 1. Get the server settings FIRST
-        from llama_cpp.server import settings
-        self.target_batch = settings.n_batch  # 2048
+        # Get reference to original module first
+        original_llama = sys.modules.get('llama_cpp', None)
         
-        # 2. Preserve original Llama class
-        if original_llama_cpp:
-            self.OriginalLlama = original_llama_cpp.Llama
-            
-        # 3. Monkey-patch the Llama class constructor
-        class PatchedLlama(self.OriginalLlama):
+        # Force reload settings with potential user modifications
+        settings_module = importlib.import_module('llama_cpp.server.settings')
+        importlib.reload(settings_module)
+        
+        # Modern llama.cpp versions use a Settings class
+        if hasattr(settings_module, 'Settings'):
+            self.target_batch = settings_module.Settings().n_batch
+        else:  # Legacy version with direct attributes
+            self.target_batch = getattr(settings_module, 'n_batch', 512)  # Fallback
+
+        # Monkey-patch the Llama class
+        class PatchedLlama(original_llama.Llama):
             def __init__(self, *args, **kwargs):
-                # Force n_batch if not explicitly set
-                if 'n_batch' not in kwargs:
-                    kwargs['n_batch'] = self.target_batch
+                kwargs.setdefault('n_batch', self.target_batch)
                 super().__init__(*args, **kwargs)
-                
-        # 4. Replace the class in the module
-        original_llama_cpp.Llama = PatchedLlama
-        sys.modules['llama_cpp'] = original_llama_cpp
+        
+        original_llama.Llama = PatchedLlama
+        sys.modules['llama_cpp'] = original_llama
 
-        # 5. Reload dependent modules
-        if 'llama_cpp.server' in sys.modules:
-            reload(sys.modules['llama_cpp.server'])
+        print(f"Successfully set n_batch to {self.target_batch}")
 
-# Apply the hijack
+# Apply the hijack immediately
 llama_cpp_hijack()
