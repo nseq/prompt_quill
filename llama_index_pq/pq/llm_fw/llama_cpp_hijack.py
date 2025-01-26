@@ -17,10 +17,17 @@ import importlib
 from types import ModuleType
 from pathlib import Path
 
+
 class llama_cpp_hijack:
     def __init__(self):
-        # 1. Get original module reference
-        original_llama = sys.modules.get('llama_cpp', None)
+        # Ensure llama_cpp is imported properly
+        if 'llama_cpp' not in sys.modules:
+            sys.modules['llama_cpp'] = importlib.import_module('llama_cpp')
+            
+        original_llama = sys.modules['llama_cpp']
+        
+        if not hasattr(original_llama, 'Llama'):
+            raise ImportError("llama_cpp.Llama not found. Check installation or version compatibility.")
         
         # 2. Force reload settings with proper Pydantic v2 handling
         settings_module = importlib.import_module('llama_cpp.server.settings')
